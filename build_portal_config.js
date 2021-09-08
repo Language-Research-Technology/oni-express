@@ -8,7 +8,7 @@
 
 const _ = require('lodash');
 const fs = require('fs-extra');
-const oi = require('oni-indexer');
+const oi = require('./services/CatalogSolr');
 const winston = require('winston');
 
 const MANDATORY_SOLR_FIELDS = [

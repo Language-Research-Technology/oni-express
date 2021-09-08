@@ -307,6 +307,7 @@ async function indexRecords(indexer, dumpDir, uriIds, ocflPath, records) {
             });
           } else {
             docs[t].forEach((item) => {
+              item['path'] = record['path'];
               solrDocs.push(item);
             });
           }

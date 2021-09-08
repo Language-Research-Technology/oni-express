@@ -87,10 +87,17 @@ Types with errors: ${this.errors.join(', ')}`);
           this.facets[type] = {};
         }
         const facet_as = cf['index_as'] ? cf['index_as'] : field;
-        this.facets[type][facet_as] = {
-          facetField: this.facetFieldName(type, facet_as, cf),
-          JSON: cf['resolve'] ? true : false
-        };
+        if (cf['global']) {
+          this.facets[facet_as] = {
+            facetField: this.facetFieldName(type, facet_as, cf),
+            JSON: cf['resolve'] ? true : false
+          };
+        } else {
+          this.facets[type][facet_as] = {
+            facetField: this.facetFieldName(type, facet_as, cf),
+            JSON: cf['resolve'] ? true : false
+          };
+        }
         // rather than have downstream code need to decide
         // that it's an index_as, just have the config available
         // under both the original and index_as name
@@ -110,7 +117,12 @@ Types with errors: ${this.errors.join(', ')}`);
 
   facetFieldName(type, field, cf) {
     const multi = (cf['multi'] || (cf['resolve'] === 'multi'));
-    return [type, field, multi ? 'facetmulti' : 'facet'].join('_');
+    // If a facet is a global facet, that is if we do not care about the object type we index as is.
+    if (cf['global']) {
+      return [field, multi ? 'facetmulti' : 'facet'].join('_');
+    } else {
+      return [type, field, multi ? 'facetmulti' : 'facet'].join('_');
+    }
   }
 
 
@@ -409,7 +421,7 @@ Types with errors: ${this.errors.join(', ')}`);
       } else {
         this.solr[plugin.destination] = result;
       }
-      if(plugin.facet) {
+      if (plugin.facet) {
         //TODO: Maybe we just need this function in the plugin, because mapValue stores in solr and deals with facets
         await this.mapValue(plugin, type, item, plugin.destination, plugin.destination, result)
       }
@@ -550,12 +562,17 @@ Types with errors: ${this.errors.join(', ')}`);
         this.logger.debug(`Facet config for ${index_as} = ${JSON.stringify(fieldcf['facet'])}`);
         if (fieldcf['facet']) {
           const facet = this.makeFacet(fieldcf['facet'], value, this.solr[index_as]);
-          if (!this.facets[type][index_as]) {
-            this.logger.error(`No facet config found for ${type}/${index_as}`);
-            this.logger.debug(JSON.stringify(this.facets[type]));
+          if (!this.facets[type][index_as] && !this.facets[index_as]) {
+            this.logger.error(`No facet config found for ${type}/${index_as} or ${index_as}`);
+            this.logger.debug(JSON.stringify(this.facets));
             throw Error(`No facet config for ${index_as}`);
           }
-          const facetField = this.facets[type][index_as]['facetField'];
+          let facetField = {};
+          if (fieldcf['global']) {
+            facetField = this.facets[index_as]['facetField'];
+          } else {
+            facetField = this.facets[type][index_as]['facetField'];
+          }
           if (debug) {
             this.logger.debug(`field ${field} (${index_as}) facet ${facetField} ${value} = ${facet}`);
           }
@@ -649,8 +666,12 @@ Types with errors: ${this.errors.join(', ')}`);
     }
 
     this.logger.debug(`Resolving: item ${item['@id']} field ${field} index_as ${index_as}`);
-
-    const matchId = `${this.currentType}_${index_as}`;
+    let matchId = '';
+    if (cf['global']) {
+      matchId = `${index_as}`;
+    } else {
+      matchId = `${this.currentType}_${index_as}`;
+    }
     this.logger.debug(`itemFilters = ${JSON.stringify(this.itemFilters, null, 2)}`);
     this.logger.debug(`matchId = ${matchId}`);
     if (matchId in this.itemFilters) {
@@ -698,6 +719,14 @@ Types with errors: ${this.errors.join(', ')}`);
     const resolvedTypes = this.crate.utils.asArray(resolved["@type"]);
     for (let type of Object.keys(this.config['types'])) {
       const cf = this.config['type'];
+      for (let r of resolved) {
+        if (resolvedTypes.includes(type) && !this.alreadyIndexed[r["@id"]]) {
+          this.alreadyIndexed[r["@id"]] = true;
+          this.resolvedItemsToIndex.push(r);
+        }
+      }
+    }
+    for (let type of Object.keys(this.config['globalTypes'])) {
       for (let r of resolved) {
         if (resolvedTypes.includes(type) && !this.alreadyIndexed[r["@id"]]) {
           this.alreadyIndexed[r["@id"]] = true;
@@ -777,13 +806,17 @@ Types with errors: ${this.errors.join(', ')}`);
 
     const resolvedTypes = this.crate.utils.asArray(resolved["@type"]);
     for (let type of Object.keys(this.config['types'])) {
-      const cf = this.config['type'];
       if (resolvedTypes.includes(type) && !this.alreadyIndexed[resolved["@id"]]) {
         this.alreadyIndexed[resolved["@id"]] = true;
         this.resolvedItemsToIndex.push(resolved);
       }
     }
-
+    for (let type of Object.keys(this.config['globalTypes'])) {
+      if (resolvedTypes.includes(type) && !this.alreadyIndexed[resolved["@id"]]) {
+        this.alreadyIndexed[resolved["@id"]] = true;
+        this.resolvedItemsToIndex.push(resolved);
+      }
+    }
     const flattened = JSON.stringify(resolved).replace(/"/g, '\"')
 
     return flattened;
