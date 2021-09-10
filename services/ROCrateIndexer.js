@@ -284,11 +284,13 @@ Types with errors: ${this.errors.join(', ')}`);
       const identifier = this.crate.getNamedIdentifier(namespace);
       if (identifier) {
         rootItem['@id'] = identifier;
+      } else if (!identifier && datasetCf['@id']['setId']) {
+        rootItem['@id'] = this.root[datasetCf['@id']['setId']];
       } else {
         rootItem['@id'] = default_id;
         this.logger.info(`No named identifier in ro-crate - using default id ${default_id}`);
       }
-      this.logger.debug(`Named identifier ${namespace} => ${identifier}`);
+      this.logger.debug(`Named identifier ${namespace} => ${rootItem['@id']}`);
     }
 
     rootItem['licenseOriginal'] = rootItem['license'];
@@ -325,6 +327,7 @@ Types with errors: ${this.errors.join(', ')}`);
 
   async indexItems(items, cfTypes, cfBase, solrDocument, auto) {
     for (const item of items) {
+
       if (item['@id'] !== this.rootOrigId) {
         var types = this.crate.utils.asArray(item['@type']);
         // Look through types in order
