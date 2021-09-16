@@ -4,6 +4,7 @@ const ROCrate = require('ro-crate').ROCrate;
 const fs = require('fs-extra');
 const Utils = require('ro-crate').Utils;
 const path = require('path');
+const {value} = require("lodash/seq");
 
 
 // FIXME - need to be more definite about what is and is not a fatal
@@ -242,10 +243,13 @@ Types with errors: ${this.errors.join(', ')}`);
     const cfTypes = this.config['types'];
 
     // do the root Dataset item first
+    let namedDataset = 'Dataset'
+    if (this.config.namedDataset) {
+      namedDataset = this.config.namedDataset;
+    }
+    const datasetCf = cfTypes[namedDataset];
 
-    const datasetCf = cfTypes['Dataset'];
-
-    if(! datasetCf) {
+    if(!datasetCf) {
       throw Error("ro-crate to solr config must have a Dataset type");
     }
 
@@ -278,10 +282,10 @@ Types with errors: ${this.errors.join(', ')}`);
     this.logger.debug(`Set root item to ${this.rootItem['@id']}`);
 
 
-    const rootSolr = await this.mapItem(cfBase, datasetCf, 'Dataset', rootItem);
+    const rootSolr = await this.mapItem(cfBase, datasetCf, namedDataset, rootItem);
 
-
-    const solrDocument = { 'Dataset': [ rootSolr ] };
+    const solrDocumentParent = {value: namedDataset};
+    const solrDocument = solrDocumentParent.value[namedDataset] = [rootSolr] ;
 
     // First cut of inheritance for licenses: if an item doesn't have a field
     // X, and X has 'inherit' set to True, copy it from the rootItem's X, if

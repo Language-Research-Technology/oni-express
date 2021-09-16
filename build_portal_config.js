@@ -123,7 +123,7 @@ async function makePortalConfig(indexfile, cf, facets) {
         newFacets[facetField] = _.cloneDeep(portal['facetDefaults']);
       } else {
         newFacets[facetField] = {}; 
-      };
+      }
       newFacets[facetField]['field'] = field;
       newFacets[facetField]['label'] = field[0].toUpperCase() + field.substr(1);
       if( facets[type][field]['JSON'] ) {

@@ -267,15 +267,19 @@ Types with errors: ${this.errors.join(', ')}`);
     const cfTypes = this.config['types'];
 
     // do the root Dataset item first
-
-    const datasetCf = cfTypes['Dataset'];
-
+    // Name a Dataset
+    let namedDataset = 'Dataset'
+    if (this.config['namedDataset']) {
+      namedDataset = this.config.namedDataset;
+    }
+    const datasetCf = cfTypes[namedDataset];
     this.root = this.crate.getRootDataset();
     if (!this.root) {
       throw Error("Couldn't find ro-crate's root dataset");
     }
     // clone the item and rewrite its @id to a named identifier if
     // that's been configured
+    this.root['@type'] = this.config['namedDataset'];
     const rootItem = _.clone(this.root);
     this.rootOrigId = rootItem['@id']; // so we can skip it later
 
@@ -299,8 +303,8 @@ Types with errors: ${this.errors.join(', ')}`);
     const solrDocument = {};
 
     if (datasetCf) {
-      const rootSolr = await this.mapItem(cfBase, datasetCf, 'Dataset', rootItem);
-      solrDocument['Dataset'] = [rootSolr];
+      const rootSolr = await this.mapItem(cfBase, datasetCf, namedDataset, rootItem);
+      solrDocument[namedDataset] = [rootSolr];
     }
 
     // First cut of inheritance for licenses: if an item doesn't have a field
@@ -327,7 +331,7 @@ Types with errors: ${this.errors.join(', ')}`);
 
   async indexItems(items, cfTypes, cfBase, solrDocument, auto) {
     for (const item of items) {
-
+      // TODO: add option here to ignore the root or not!!
       if (item['@id'] !== this.rootOrigId) {
         var types = this.crate.utils.asArray(item['@type']);
         // Look through types in order
@@ -364,7 +368,7 @@ Types with errors: ${this.errors.join(', ')}`);
 
   async mapItem(cfBase, cf, type, item) {
 
-    this.solr = this.baseSolr(cfBase, item);
+    this.solr = this.baseSolr(cfBase, item, type);
 
     // this is used to collect subgraphs of resolved links to items, if so configured
 
@@ -932,22 +936,34 @@ Types with errors: ${this.errors.join(', ')}`);
 
   // mappings which are done for all solr records
 
-  baseSolr(map_all, item) {
+  baseSolr(map_all, item, type) {
     const base = {};
     _.each(map_all, (targets, field) => {
       _.each(targets, (target) => {
-        base[target] = this.unwrap(item[field])
+        if (field === '@type') {
+          // Can only have one type
+          base[target] = this.findPreferredValue(item[field], type);
+        } else {
+          base[target] = this.unwrap(item[field], undefined);
+        }
       });
     });
     return base;
   }
 
+  findPreferredValue(value, preferred) {
+    const values = this.crate.utils.asArray(value);
+    const first = _.find(values, function (v) {
+      return v === preferred;
+    });
+    return first;
+  }
 
   // unwrap a value if it's in an array
 
   unwrap(value, returnJson) {
     const values = this.crate.utils.asArray(value);
-    var newValues = []
+    var newValues = [];
     for (let val of values) {
       if (val["@id"]) {
         const target = this.crate.getItem(val["@id"]);
@@ -962,8 +978,8 @@ Types with errors: ${this.errors.join(', ')}`);
       } else {
         newValues.push(val)
       }
-      return newValues;
     }
+    return newValues;
   }
 }
 

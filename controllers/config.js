@@ -68,7 +68,6 @@ async function makePortalConfig(indexfile, cf, facets) {
       let facetField = '';
       if (facets[type][field]['facetField']) {
         facetField = facets[type][field]['facetField'];
-
       } else {
         // this will catch the global facets : if(facets[type]['global'])
         facetField = facets[type]['facetField'];
@@ -87,10 +86,8 @@ async function makePortalConfig(indexfile, cf, facets) {
         newFacets[facetField]['field'] = fieldLabel;
         newFacets[facetField]['label'] = fieldLabel[0].toUpperCase() + fieldLabel.substr(1);
       }
-      if (facets[type][field]['JSON']) {
-        newFacets[facetField]['JSON'] = true;
-      } else {
-        newFacets[facetField]['JSON'] = true;
+      if(!_.isUndefined(facets[type]['JSON'])) {
+        newFacets[facetField]['JSON'] = facets[type]['JSON'];
       }
     }
   }

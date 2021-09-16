@@ -5,7 +5,12 @@ function isMemberOf(item, crate) {
     const reverses = [];
     for (let r of reverseRel) {
       const po = crate.getItem(r['@id']);
-      reverses.push({"id": po['@id'], "name": po['name'], "identifier": po['identifier']});
+      let id = po['@id'];
+      if (po['@id'] === './') {
+        const fallbackid = `arcp://${po['name']}` || 'no_global_id';
+        id = fallbackid;
+      }
+      reverses.push({"id": id, "name": po['name'], "@type": po['@type']});
     }
     return reverses;
   }
