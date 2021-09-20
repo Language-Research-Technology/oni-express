@@ -292,26 +292,26 @@ async function indexRecords(indexer, dumpDir, uriIds, ocflPath, records) {
           await dumpDocs(dumpDir, record, docs);
         }
         for (let t of Object.keys(docs)) {
-          if (t === "Dataset") {
-            docs.Dataset.forEach((dataset) => {
-              dataset['path'] = record['path'];
-              if (uriIds === 'hashpaths') {
-                dataset['uri_id'] = record['hash_path'];
-              } else {
-                if (dataset['id'] && Array.isArray(dataset['id'])) {
-                  dataset['uri_id'] = dataset['id'][0];
-                } else {
-                  logger.error("Couldn't find id for uri_id");
-                }
-              }
-              solrDocs.push(dataset);
-            });
-          } else {
+          // if (t === "Dataset") {
+          //   docs.Dataset.forEach((dataset) => {
+          //     dataset['path'] = record['path'];
+          //     if (uriIds === 'hashpaths') {
+          //       dataset['uri_id'] = record['hash_path'];
+          //     } else {
+          //       if (dataset['id'] && Array.isArray(dataset['id'])) {
+          //         dataset['uri_id'] = dataset['id'][0];
+          //       } else {
+          //         logger.error("Couldn't find id for uri_id");
+          //       }
+          //     }
+          //     solrDocs.push(dataset);
+          //   });
+          // } else {
             docs[t].forEach((item) => {
               item['path'] = record['path'];
               solrDocs.push(item);
             });
-          }
+          // }
         }
 
       }

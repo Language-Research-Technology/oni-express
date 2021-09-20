@@ -4,6 +4,7 @@ const ROCrate = require('ro-crate').ROCrate;
 const fs = require('fs-extra');
 const Utils = require('ro-crate').Utils;
 const path = require('path');
+const uuidv1 = require('uuid/v1');
 
 // note: the members of the solr doc objects returned by createSolrDocument
 // are weird JS objects which look like single-element arrays when
@@ -268,55 +269,55 @@ Types with errors: ${this.errors.join(', ')}`);
 
     // do the root Dataset item first
     // Name a Dataset
-    let namedDataset = 'Dataset'
-    if (this.config['namedDataset']) {
-      namedDataset = this.config.namedDataset;
-    }
-    const datasetCf = cfTypes[namedDataset];
-    this.root = this.crate.getRootDataset();
-    if (!this.root) {
-      throw Error("Couldn't find ro-crate's root dataset");
-    }
+    // let namedDataset = 'Dataset'
+    // if (this.config['namedDataset']) {
+    //   namedDataset = this.config.namedDataset;
+    // }
+    //const datasetCf = cfTypes[namedDataset];
+    //this.root = this.crate.getRootDataset();
+    // if (!this.root) {
+    //   throw Error("Couldn't find ro-crate's root dataset");
+    // }
     // clone the item and rewrite its @id to a named identifier if
     // that's been configured
-    this.root['@type'] = this.config['namedDataset'];
-    const rootItem = _.clone(this.root);
-    this.rootOrigId = rootItem['@id']; // so we can skip it later
+    // this.root['@type'] = this.config['namedDataset'];
+    // const rootItem = _.clone(this.root);
+    // this.rootOrigId = rootItem['@id']; // so we can skip it later
 
-    if (datasetCf && datasetCf['@id']) {
-      const namespace = datasetCf['@id']['name'];
-      const identifier = this.crate.getNamedIdentifier(namespace);
-      if (identifier) {
-        rootItem['@id'] = identifier;
-      } else if (!identifier && datasetCf['@id']['setId']) {
-        rootItem['@id'] = this.root[datasetCf['@id']['setId']];
-      } else {
-        rootItem['@id'] = default_id;
-        this.logger.info(`No named identifier in ro-crate - using default id ${default_id}`);
-      }
-      this.logger.debug(`Named identifier ${namespace} => ${rootItem['@id']}`);
-    }
+    // if (datasetCf && datasetCf['@id']) {
+    //   const namespace = datasetCf['@id']['name'];
+    //   const identifier = this.crate.getNamedIdentifier(namespace);
+    //   if (identifier) {
+    //     rootItem['@id'] = identifier;
+    //   } else if (!identifier && datasetCf['@id']['setId']) {
+    //     rootItem['@id'] = this.root[datasetCf['@id']['setId']];
+    //   } else {
+    //     rootItem['@id'] = default_id;
+    //     this.logger.info(`No named identifier in ro-crate - using default id ${default_id}`);
+    //   }
+    //   this.logger.debug(`Named identifier ${namespace} => ${rootItem['@id']}`);
+    // }
 
-    rootItem['licenseOriginal'] = rootItem['license'];
-    rootItem['license'] = this.mapLicenses(rootItem['license']);
+    // rootItem['licenseOriginal'] = rootItem['license'];
+    // rootItem['license'] = this.mapLicenses(rootItem['license']);
 
     const solrDocument = {};
 
-    if (datasetCf) {
-      const rootSolr = await this.mapItem(cfBase, datasetCf, namedDataset, rootItem);
-      solrDocument[namedDataset] = [rootSolr];
-    }
+    // if (datasetCf) {
+    //   const rootSolr = await this.mapItem(cfBase, datasetCf, namedDataset, rootItem);
+    //   solrDocument[namedDataset] = [rootSolr];
+    // }
 
     // First cut of inheritance for licenses: if an item doesn't have a field
     // X, and X has 'inherit' set to True, copy it from the rootItem's X, if
     // that exists. (NOTE: inheritance goes straight to the rootItem, not up
     // the tree of resolutions)
 
-    this.rootItem = rootItem; // set this so that inheritance can access it
+    //this.rootItem = rootItem; // set this so that inheritance can access it
 
 
     // loop through each item in the JSON-LD @graph
-    await this.indexItems(this.crate.json_ld["@graph"], cfTypes, cfBase, solrDocument, false);
+    await this.indexItems(this.crate.json_ld["@graph"], cfTypes, cfBase, solrDocument, true);
     var additionalItems = _.clone(this.resolvedItemsToIndex)
     this.resolvedItemsToIndex = []
     while (additionalItems.length > 0) {
@@ -334,22 +335,27 @@ Types with errors: ${this.errors.join(', ')}`);
       // TODO: add option here to ignore the root or not!!
       if (item['@id'] !== this.rootOrigId) {
         var types = this.crate.utils.asArray(item['@type']);
-        // Look through types in order
+
+        // Look through types in order (for non-integer keys)
         for (let type of Object.keys(cfTypes)) {
           if (types.includes(type)) {
-
             // get config for this type of item
             const cf = cfTypes[type];
             // If auto flag set always index regardless of filter
             if (auto || this.typeFilters[type](item)) {
               // Only do ONCE per type
               types = [type];
-              item["@type"] = types;
+              item["@type"] = [type];
+              if (item["@id"].includes(['./'])) {
+                item["__id"] = this.crate.getRootId();
+                item["@id"] = uuidv1();
+              }
               const solr = await this.mapItem(cfBase, cf, type, item);
               if (!(solrDocument[type])) {
                 solrDocument[type] = [];
               }
               solrDocument[type].push(solr);
+              break;
             }
           }
         }
@@ -982,7 +988,7 @@ Types with errors: ${this.errors.join(', ')}`);
   }
 
   link_rebase(value, base) {
-    if( this.rootItem && this.rootItem['@id'] ) {
+    if (this.rootItem && this.rootItem['@id']) {
       const id = this.rootItem['@id'];
       return value.replace(/href="((?!http).*)"/, `href="/${base}/${this.rootItem['@id']}/$1"`)
     } else {
