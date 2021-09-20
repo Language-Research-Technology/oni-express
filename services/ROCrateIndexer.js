@@ -843,7 +843,6 @@ Types with errors: ${this.errors.join(', ')}`);
 
 
   makeFacet(cf, raw, resolved) {
-
     // tokenize the contents on the delim regexp and facet
     if (cf['tokenize']) {
       if (raw) {
@@ -980,6 +979,16 @@ Types with errors: ${this.errors.join(', ')}`);
       }
     }
     return newValues;
+  }
+
+  link_rebase(value, base) {
+    if( this.rootItem && this.rootItem['@id'] ) {
+      const id = this.rootItem['@id'];
+      return value.replace(/href="((?!http).*)"/, `href="/${base}/${this.rootItem['@id']}/$1"`)
+    } else {
+      this.logger.warn("No rootItem for link_rebase");
+      return value;
+    }
   }
 }
 

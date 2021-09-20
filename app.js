@@ -161,9 +161,6 @@ app.get('/config/status', async (req, res) => {
     }
     status.version = await getVersion();
     const solrStatus = await indexer.solrStatus(config);
-    if (solrStatus.error) {
-      error = true;
-    }
     status.solrStatus = solrStatus;
     const solrCheck = await indexer.checkSolr({indexer: config['indexer']}, 1);
     status.solrCheck = solrCheck;
@@ -268,10 +265,7 @@ app.use('/solr/ocfl/select*', proxy(config['solr'], {
     // console.log("/solr/ocfl/ No iud found in session");
     // 	return false;
     // }
-    if (req.method !== 'GET') {
-      return false;
-    }
-    return true;
+    return req.method === 'GET';
   },
   proxyReqPathResolver: (req) => {
     if (config['solr_fl']) {

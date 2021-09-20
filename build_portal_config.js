@@ -8,8 +8,9 @@
 
 const _ = require('lodash');
 const fs = require('fs-extra');
-const oi = require('./services/CatalogSolr');
+const oi = require('./services/ROCrateIndexer');
 const winston = require('winston');
+const ROCrateIndexer = require("../services/ROCrateIndexer");
 
 const MANDATORY_SOLR_FIELDS = [
   "record_type_s",
@@ -78,7 +79,7 @@ async function main (argv) {
     process.exit(-1)
   }
 
-	const indexer = new oi.CatalogSolr(logger);
+  const indexer = new ROCrateIndexer(logger);
   indexer.setConfig(indexcf['fields']);
 
 	const portalcf = await makePortalConfig(argv.indexer, indexcf, indexer.facets);

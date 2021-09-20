@@ -38,7 +38,7 @@ async function solrStatus(config) {
   } catch (e) {
     logger.error('solrStatus');
     logger.error(e);
-    return {error: e};
+    throw new Error(e);
   }
 }
 
@@ -52,8 +52,9 @@ async function checkSolr(argv, retries) {
       return {solr: 'down', error: 'Error communicating with solr'}
     }
   } catch (e) {
+    logger.error('checkSolr');
     logger.error(e);
-    return {solr: 'error', error: e}
+    throw new Error(e);
   }
 }
 

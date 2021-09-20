@@ -1,8 +1,8 @@
 const _ = require('lodash');
 const fs = require('fs-extra');
-const oi = require('../services/CatalogSolr');
 const winston = require('winston');
 const utils = require('../services/utils');
+const ROCrateIndexer = require("../services/ROCrateIndexer");
 
 const consoleLog = new winston.transports.Console();
 const logger = winston.createLogger({
@@ -19,42 +19,36 @@ async function getVersion() {
 // Script which takes the facet configuration for oni-indexer and uses it to build the facets
 // section of the config for oni-portal.
 async function getPortalConfig(argv) {
-  const expresscf = argv.express;
-  if (!expresscf) {
-    return {error: `Couldn't read express config ${argv.express}`};
+  try {
+    const expresscf = argv.express;
+    if (!expresscf) {
+      return {error: `Couldn't read express config ${argv.express}`};
+    }
+    const indexcf = await utils.readConf(logger, argv.indexer);
+
+    if (argv.base) {
+      indexcf['portal']['base'] = argv.base;
+    }
+    if (argv.portal) {
+      indexcf['portal']['config'] = argv.portal;
+    }
+
+    const basecf = await utils.readConf(logger, indexcf['portal']['base']);
+
+    const indexer = new ROCrateIndexer(logger);
+    indexer.setConfig(indexcf['fields']);
+    const portalcf = await makePortalConfig(argv.indexer, indexcf, indexer.facets);
+    // add ocfl api path
+    const url_path = expresscf['ocfl']['url_path'];
+    if (url_path) {
+      logger.debug(`Setting ocfl endpoint to ${url_path}`);
+      portalcf['apis']['ocfl'] = url_path;
+    }
+
+    return portalcf;
+  } catch (e) {
+    throw new Error(e);
   }
-  const indexcf = await utils.readConf(logger, argv.indexer);
-  if (!expresscf) {
-    return {error: `Couldn't read indexer config ${argv.indexer}`}
-  }
-
-
-  if (argv.base) {
-    indexcf['portal']['base'] = argv.base;
-  }
-  if (argv.portal) {
-    indexcf['portal']['config'] = argv.portal;
-  }
-
-  const basecf = await utils.readConf(logger, indexcf['portal']['base']);
-  if (!basecf) {
-    return {error: `Couldn't read base portal cf ${indexcf['portal']['base']}`}
-  }
-
-  const indexer = new oi.CatalogSolr(logger);
-  indexer.setConfig(indexcf['fields']);
-
-  const portalcf = await makePortalConfig(argv.indexer, indexcf, indexer.facets);
-
-  // add ocfl api path
-
-  const url_path = expresscf['ocfl']['url_path'];
-  if (url_path) {
-    logger.debug(`Setting ocfl endpoint to ${url_path}`);
-    portalcf['apis']['ocfl'] = url_path;
-  }
-
-  return portalcf;
 }
 
 async function makePortalConfig(indexfile, cf, facets) {
@@ -86,7 +80,7 @@ async function makePortalConfig(indexfile, cf, facets) {
         newFacets[facetField]['field'] = fieldLabel;
         newFacets[facetField]['label'] = fieldLabel[0].toUpperCase() + fieldLabel.substr(1);
       }
-      if(!_.isUndefined(facets[type]['JSON'])) {
+      if (!_.isUndefined(facets[type]['JSON'])) {
         newFacets[facetField]['JSON'] = facets[type]['JSON'];
       }
     }

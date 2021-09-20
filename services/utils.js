@@ -11,8 +11,8 @@ async function readConf(logger, portalcf) {
     return conf;
   } catch (e) {
     logger.error(e);
-    logger.error(`Portal conf ${portalcf} not found`);
-    return null;
+    logger.error(`Configuration File: ${portalcf} not found`);
+    throw new Error(`Configuration File: ${portalcf} not found`);
   }
 }
 
