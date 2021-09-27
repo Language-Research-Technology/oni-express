@@ -8,24 +8,55 @@ var cors = require('cors');
 var nocache = require('nocache');
 var useragent = require('express-useragent');
 
+var passport = require('passport');
+var GitHubStrategy = require('passport-github2').Strategy;
+
 const jwt = require('jwt-simple');
 
 var ocfl = require('./controllers/ocfl');
 var check_jwt = require('./controllers/check_jwt');
+var auth = require('./controllers/auth');
 
 var MemcachedStore = require("connect-memcached")(session);
-
 var app = express();
-
 var env = app.get('env');
 
 var configFile = process.argv[2] || './config/express.json';
 console.log('Using config file: ' + configFile);
 var config = require(configFile)[env];
 
+if (config['auth'] && config['auth']['github']) {
+  const configAuthGithub = config['auth']['github'];
+  passport.use(new GitHubStrategy({
+      clientID: configAuthGithub['clientID'],
+      clientSecret: configAuthGithub['clientSecret'],
+      callbackURL: `${config['baseURL']}${configAuthGithub['callback']}`,
+      scope: 'read:org, user'
+    },
+    function (accessToken, refreshToken, profile, cb) {
+      // In this example, the user's profile is supplied as the user record.
+      // In a production-quality application, the profile should be associated
+      // with a user record in the application's database, which allows for
+      // account linking and authentication with other identity providers.
+      return cb(null, profile, {accessToken: accessToken, refreshToken: refreshToken});
+    }
+  ));
+}
+// Initialize Passport and restore authentication state, if any, from the
+// session.
+app.use(passport.initialize());
+app.use(passport.session());
+passport.serializeUser(function (user, done) {
+  done(null, user);
+});
+passport.deserializeUser(function (user, done) {
+  done(null, user);
+});
+
 const {getVersion, getPortalConfig} = require('./controllers/config');
 const indexer = require('./controllers/indexer');
 const {verifyToken, simpleVerify} = require('./controllers/local_auth');
+const github = require('./services/Github');
 
 const ocfl_path = config.ocfl.url_path || 'ocfl';
 
@@ -68,7 +99,7 @@ function checkSession(req, res, next) {
   console.log(`checkSession: ${req.url}`);
   if (config['clientBlock']) {
     const ua = req.useragent;
-    for (cond of config['clientBlock']) {
+    for (let cond of config['clientBlock']) {
       if (ua[cond]) {
         console.log(`client blocked ${cond}`);
         res.status(403).send("Browser or client not supported");
@@ -76,36 +107,50 @@ function checkSession(req, res, next) {
       }
     }
   }
-  if (req.url === '/jwt/' || req.url === '/jwt' || config['auth']['UNSAFE_MODE']) {
+  if (req.session && req.session.uid) {
+    //TODO: Here check if you have access to a particular Item
+    //if you do serve item
+    //else return res.status(403).json({error: {message: 'Forbidden'}});
     next();
   } else {
-    const allow = config['auth']['allow'];
-    if (!req.session || !req.session.uid) {
-      if (req.url === '/') {
-        res.redirect(303, config.auth.authURL);
-      } else {
-        res.status(403).send("Forbidden");
-      }
-    } else {
-      var ok = true;
-      for (field in allow) {
-        if (!(field in req.session) || !req.session[field].match(allow[field])) {
-          ok = false;
-          console.log(`session check failed for ${field} ${req.session[field]}`);
-        }
-      }
-      if (ok) {
-        next();
-      } else {
-        req.status(403).send("Forbidden (this is from checkSession)");
-      }
-    }
+    next();
   }
 }
 
 app.use(checkSession);
-
 // authentication endpoint
+app.get('/auth/logout', function (req, res) {
+  req.session.destroy(function (err) {
+    res.redirect('/');
+  });
+});
+
+app.get('/auth/github', passport.authenticate('github', {}, function (req, res) {
+  console.log('/auth/github');
+}));
+
+app.get('/auth/github/callback', function (req, res, next) {
+  passport.authenticate('github', function (err, user, info) {
+    if (err) {
+      return next(err);
+    }
+    if (!user) {
+      return res.redirect('/auth/github');
+    }
+    req.logIn(user, async function (err) {
+      if (err) {
+        return next(err);
+      }
+      req.session.accessToken = info.accessToken;
+      req.session.uid = user['id'];
+      req.session.displayName = user['displayName'];
+      req.session.username = user['username'];
+      req.session.provider = user['provider'];
+      req.session.memberships = await auth.setUserAccess({config: config, user: {username: req.session.username, accessToken: req.session.accessToken}})
+      return res.redirect('/');
+    });
+  })(req, res, next);
+});
 
 app.post('/jwt', (req, res) => {
 
@@ -129,6 +174,14 @@ app.post("/auth", (req, res) => {
 app.get('/config/portal', async (req, res) => {
   try {
     const portalConfig = await getPortalConfig({indexer: config['indexer'], express: config, base: config['portal']});
+    if (req.session.uid) {
+      portalConfig['user'] = {
+        displayName: req.session.displayName,
+        username: req.session.username,
+        memberships: req.session.memberships,
+        provider: 'github'
+      };
+    }
     res.status(200).json(portalConfig);
   } catch (e) {
     res.status(500).json({error: e});
@@ -164,7 +217,7 @@ app.get('/config/status', async (req, res) => {
     status.solrStatus = solrStatus;
     const solrCheck = await indexer.checkSolr({indexer: config['indexer']}, 1);
     status.solrCheck = solrCheck;
-    if(solrCheck.error){
+    if (solrCheck.error) {
       status.error = true;
     }
     const ts = new Date();
@@ -268,11 +321,21 @@ app.use('/solr/ocfl/select*', proxy(config['solr'], {
     return req.method === 'GET';
   },
   proxyReqPathResolver: (req) => {
-    if (config['solr_fl']) {
-      return req.originalUrl + '&fl=' + config['solr_fl'].join(',')
+    //if(req.isAuthenticated()){
+    if (req.session.uid) {
+      const url = auth.authorize({config: config, url: req.originalUrl, session: req.session});
+      console.log(url);
+      return url;
     } else {
-      return req.originalUrl;
+      if (config['solr_fq']) {
+        return req.originalUrl + '&fq=' + config['solr_fq']
+      } else if (config['solr_fl']) {
+        return req.originalUrl + '&fl=' + config['solr_fl'].join(',')
+      } else {
+        return req.originalUrl;
+      }
     }
+
   }
 }));
 

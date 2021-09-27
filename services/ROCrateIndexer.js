@@ -427,7 +427,7 @@ Types with errors: ${this.errors.join(', ')}`);
     if (!this.plugins[plugin.name]) {
       this.plugins[plugin.name] = require(path.join(process.cwd(), 'plugins', plugin.name))
     }
-    const result = this.plugins[plugin.name](item, this.crate);
+    const result = this.plugins[plugin.name](item, this.crate, cf);
     if (result) {
       if (plugin.json) {
         this.solr[plugin.destination] = JSON.stringify(result);

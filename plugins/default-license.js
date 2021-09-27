@@ -1,19 +1,19 @@
-function isMemberOf(item, crate) {
+function defaultLicense(item, crate, cf) {
 
-  if (item['@reverse'] && Array.isArray(item['@reverse']['hasMember'])) {
-    const reverseRel = item['@reverse']['hasMember'];
-    const reverses = [];
-    for (let r of reverseRel) {
-      const po = crate.getItem(r['@id']);
-      let id = po['@id'];
-      if (item['__id']) {
-        id = item['__id'];
+  if (item['license']) {
+    const license = item['license'];//if item does not match the list return a public
+    if (cf['license'] && cf['license']['licenses']) {
+      const licSet = cf['license']['licenses'];
+      if (licSet.includes(license) || licSet.includes(license['@id'])) {
+        return [license['@id'] || license];
+      } else {
+        return ['Public'];
       }
-      reverses.push({"id": id, "name": po['name'], "@type": po['@type']});
     }
-    return reverses;
+  } else {
+    return ['Public'];
   }
 
 }
 
-module.exports = isMemberOf;
+module.exports = defaultLicense;

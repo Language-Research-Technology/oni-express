@@ -132,9 +132,8 @@ async function makePortalConfig(indexfile, cf, facets) {
       }
     }
   }
-
-  let portalcf = await readConf(portal['config']);
   let portalbase = "portal config " + portal['config'];
+  let portalcf = await readConf(portal['config']);
 
   if( portalcf ) {
     logger.info(`Updating facets in existing portal config ${portal['config']}`);
