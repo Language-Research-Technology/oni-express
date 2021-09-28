@@ -146,7 +146,11 @@ app.get('/auth/github/callback', function (req, res, next) {
       req.session.displayName = user['displayName'];
       req.session.username = user['username'];
       req.session.provider = user['provider'];
-      req.session.memberships = await auth.setUserAccess({config: config, user: {username: req.session.username, accessToken: req.session.accessToken}})
+      req.session.memberships = await auth.setUserAccess({
+        config: config,
+        user: {username: req.session.username, accessToken: req.session.accessToken}
+      })
+      //TODO: how to return the user to where it was?
       return res.redirect('/');
     });
   })(req, res, next);
@@ -169,6 +173,23 @@ app.post('/jwt', (req, res) => {
 });
 
 app.post("/auth", (req, res) => {
+});
+
+app.get('/auth/check', async function (req, res, next) {
+  if (req.session.uid) {
+    req.session.memberships = await auth.setUserAccess({
+      config: config,
+      user: {username: req.session.username, accessToken: req.session.accessToken}
+    });
+    let aPath = req.query['redirect'] || null;
+    if (aPath) {
+      res.redirect(`/${aPath}`);
+    } else {
+      res.redirect('/');
+    }
+  } else {
+    next();
+  }
 });
 
 app.get('/config/portal', async (req, res) => {
