@@ -342,7 +342,6 @@ app.use('/solr/ocfl/select*', proxy(config['solr'], {
     return req.method === 'GET';
   },
   proxyReqPathResolver: (req) => {
-    //if(req.isAuthenticated()){
     if (req.session.uid) {
       const url = auth.authorize({config: config, url: req.originalUrl, session: req.session});
       console.log(url);
@@ -356,7 +355,6 @@ app.use('/solr/ocfl/select*', proxy(config['solr'], {
         return req.originalUrl;
       }
     }
-
   }
 }));
 

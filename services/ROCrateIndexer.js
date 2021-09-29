@@ -348,7 +348,13 @@ Types with errors: ${this.errors.join(', ')}`);
               item["@type"] = [type];
               if (item["@id"].includes(['./'])) {
                 item["__id"] = this.crate.getRootId();
-                item["@id"] = uuidv1();
+                //TODO: do this by config
+                const namedId = item['identifier'][0];
+                if (namedId) {
+                  item['@id'] = namedId;
+                } else {
+                  item['@id'] = uuidv1();
+                }
               }
               const solr = await this.mapItem(cfBase, cf, type, item);
               if (!(solrDocument[type])) {
@@ -971,6 +977,7 @@ Types with errors: ${this.errors.join(', ')}`);
     var newValues = [];
     for (let val of values) {
       if (val["@id"]) {
+        //TODO: Add if it does have val['@id'] and still you want to index as it comes
         const target = this.crate.getItem(val["@id"]);
         if (target) {
           if (target.name && !returnJson) {
@@ -979,6 +986,9 @@ Types with errors: ${this.errors.join(', ')}`);
             // TODO - should this use a better serialiser
             newValues.push(JSON.stringify(target).replace(/"/, '\"'));
           }
+        } else {
+          // Put as is because you cannot get a target otherwise its lost
+          newValues.push(val);
         }
       } else {
         newValues.push(val)
