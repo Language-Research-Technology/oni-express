@@ -570,7 +570,7 @@ Types with errors: ${this.errors.join(', ')}`);
               this.logger.debug(`field ${field} resolved ${JSON.stringify(value)}`);
             }
           } else {
-            this.solr[index_as] = this.unwrap(value, fieldcf.escapedJSON);
+            this.solr[index_as] = this.unwrap(value, fieldcf.escapedJSON, fieldcf);
           }
           if (fieldcf['validate']) {
             this.solr[index_as] = this.validate(fieldcf['validate'], this.solr[index_as]);
@@ -972,12 +972,13 @@ Types with errors: ${this.errors.join(', ')}`);
 
   // unwrap a value if it's in an array
 
-  unwrap(value, returnJson) {
+  unwrap(value, returnJson, config) {
     const values = this.crate.utils.asArray(value);
     var newValues = [];
     for (let val of values) {
-      if (val["@id"]) {
-        //TODO: Add if it does have val['@id'] and still you want to index as it comes
+      if (config && config['as_is']) {
+        newValues.push(val);
+      } else if (val["@id"]) {
         const target = this.crate.getItem(val["@id"]);
         if (target) {
           if (target.name && !returnJson) {
