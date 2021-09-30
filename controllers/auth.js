@@ -30,7 +30,7 @@ function authorize({config, url, session}) {
     let filter = '';
     const base = config['solr_fq'] || '_license';
     if (fq.length > 0) {
-      const filterJoin = fq.join(' OR ');
+      const filterJoin = fq.join('%20OR%20');
       filter = base + '%3A("Public"%20OR%20' + filterJoin + ')'
     } else {
       filter = base + '%3APublic';
