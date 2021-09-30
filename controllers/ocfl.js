@@ -3,6 +3,7 @@
 var fs = require('fs-extra');
 var path = require('path');
 var axios = require('axios');
+const pairtree = require('pairtree');
 
 // FIXME - this should use ocfl-js - the inventory stuff is
 // roll-your-own because nginx javascript couldn't
@@ -88,7 +89,10 @@ async function resolve_oid(config, oid) {
   if( config.resolver === 'solr' ) {
     return await resolve_solr(config.solr, oid);
   } else {
-    return resolve_pairtree(oid);
+    //TODO: This pairtree resolver and the whole file getters need re-work
+    //Currently just spliting into a separator;
+    //return resolve_pairtree(oid);
+    return resolve_pairtree_2(oid, '/');
   }
 }
 
@@ -482,6 +486,16 @@ function resolve_pairtree(id, separator) {
     return ret;
   });
   id = id.replace(/\//g, '=').replace(/:/g, '+').replace(/\./g, ',');
+  var path = separator;
+  while (id) {
+    path += id.substr(0, 2) + separator;
+    id = id.substr(2);
+  }
+  return path;
+}
+
+//TODO: use a proper pairtree algorithm
+function resolve_pairtree_2(id, separator) {
   var path = separator;
   while (id) {
     path += id.substr(0, 2) + separator;

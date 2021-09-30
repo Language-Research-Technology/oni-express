@@ -320,6 +320,7 @@ app.get(`/${ocfl_path}/:oidv/:content*?`, async (req, res) => {
         res.status(404).send("Autoindex is not available");
       }
     } else {
+      //TODO: send a proper oid file to the pairtree resolver
       const file = await ocfl.file(config, oid, v, content);
       if (file) {
         res.sendFile(file);
