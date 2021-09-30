@@ -349,7 +349,7 @@ app.use('/solr/ocfl/select*', proxy(config['solr'], {
       return url;
     } else {
       if (config['solr_fq']) {
-        return req.originalUrl + '&fq=' + config['solr_fq']
+        return req.originalUrl + '&fq=' + config['solr_fq'] + '%3APublic';
       } else if (config['solr_fl']) {
         return req.originalUrl + '&fl=' + config['solr_fl'].join(',')
       } else {

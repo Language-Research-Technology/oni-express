@@ -38,7 +38,9 @@ function authorize({config, url, session}) {
     const mod = url + '&fq=' + filter;
     return mod;
   } else {
-    return url + '&fq=' + config['solr_fq']
+    const base = config['solr_fq'] || '_license';
+    const filter = base + '%3APublic';
+    return url + '&fq=' + filter;
   }
 }
 
